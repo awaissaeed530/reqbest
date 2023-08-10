@@ -1,29 +1,29 @@
 use std::{net::TcpStream, io::{BufReader, BufRead, Read}, collections::HashMap};
 
+#[derive(Debug)]
 struct Request {
     pub method: String,
-    pub host: String,
-    pub connection: String,
-    pub headers: HashMap<String, String>
+    pub headers: HashMap<String, String>,
+    pub body: String,
 }
 
 impl Default for Request {
     fn default() -> Self {
         Request {
             method: "".to_owned(),
-            host: "".to_owned(),
-            connection: "".to_owned(),
-            headers: HashMap::new()
+            headers: HashMap::new(),
+            body: "".to_owned(),
         }
     }
 }
 
 pub fn handle_client(stream: &TcpStream) {
     dbg!(&stream);
-    read_request(&stream); 
+    let request = read_request(&stream); 
+    dbg!(&request);
 }
 
-fn read_request(stream: &TcpStream) {
+fn read_request(stream: &TcpStream) -> Request {
     let mut request = Request::default();
     let mut reader = BufReader::new(stream.try_clone().unwrap());
 
@@ -36,8 +36,8 @@ fn read_request(stream: &TcpStream) {
     }
 
     let mut lines = headers.lines();
-    let method = lines.nth(0).unwrap();
-    dbg!(method);
+    let method = lines.nth(0).unwrap().split("/").nth(0).unwrap().trim();
+    request.method = method.to_owned();
 
     for l in lines {
         let mut split = l.split(":");
@@ -46,13 +46,14 @@ fn read_request(stream: &TcpStream) {
         if key.is_empty() || value.is_empty() { continue; } 
         request.headers.insert(key, value); 
     }
-    dbg!(&request.headers);
 
     let content_length = request.headers.get("Content-Length").unwrap().parse::<usize>().unwrap();
     let mut buf = vec![0; content_length];
     reader.read_exact(&mut buf).unwrap();
 
     let content = String::from_utf8(buf).unwrap();
-    dbg!(content);
+
+    request.body = content;
+    return request;
 }
 
